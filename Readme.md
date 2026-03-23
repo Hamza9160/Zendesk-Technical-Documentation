@@ -10,9 +10,9 @@
 
 1. [Overview](#overview)
 2. [Architecture](#architecture)
-3. [Screen Flow Diagram](#screen-flow-diagram)
-4. [Submit Button - Complete API Flow](#submit-button---complete-api-flow)
-5. [Zendesk User Setup](#zendesk-user-setup)
+3. [Zendesk User Setup (Prerequisite)](#zendesk-user-setup-prerequisite)
+4. [Screen Flow Diagram](#screen-flow-diagram)
+5. [Submit Button - Complete API Flow](#submit-button---complete-api-flow)
 6. [Screens & Components](#screens--components)
 7. [Ticket Status Filtering](#ticket-status-filtering)
 8. [API Endpoints](#api-endpoints)
@@ -112,6 +112,117 @@ The **Concierge** feature enables prescribers to submit requests directly from t
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                           │
 └───────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Zendesk User Setup (Prerequisite)
+
+Before a user can submit requests, they must be registered with Zendesk. This happens automatically when the user first navigates to the Concierge feature.
+
+### User Creation Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 ZENDESK USER SETUP FLOW (PREREQUISITE)                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    USER OPENS CONCIERGE FOR FIRST TIME
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   STEP 1: CREATE ZENDESK SUPPORT USER                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Endpoint: POST {BASE_URL}/api/v2/users.json                            │
+│  Auth: Basic Auth (email/token:apiToken)                                │
+│                                                                         │
+│  Request Body:                                                          │
+│  {                                                                      │
+│    "user": {                                                            │
+│      "name": "{firstName}",                                             │
+│      "email": "{userEmail}",                                            │
+│      "external_id": "{npi}"                                             │
+│    }                                                                    │
+│  }                                                                      │
+│                                                                         │
+│  Purpose: Create user account in Zendesk Support for ticket management │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                STEP 2: CREATE SUNSHINE CONVERSATIONS USER               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/users                     │
+│  Auth: Basic Auth (appKey:appSecret)                                    │
+│                                                                         │
+│  Request Body:                                                          │
+│  {                                                                      │
+│    "externalId": "{npi}",                                               │
+│    "identities": [                                                      │
+│      { "type": "email", "value": "{userEmail}" }                        │
+│    ],                                                                   │
+│    "profile": {                                                         │
+│      "givenName": "{firstName}",                                        │
+│      "surname": "{lastName}",                                           │
+│      "email": "{userEmail}"                                             │
+│    }                                                                    │
+│  }                                                                      │
+│                                                                         │
+│  Purpose: Create user in Sunshine Conversations for real-time messaging│
+│                                                                         │
+│  Response Handling:                                                     │
+│  • 201 Created → User created successfully, returns userId              │
+│  • 409 Conflict → User already exists, fetch existing user              │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      STEP 3: GENERATE JWT TOKEN                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  JWT Token is generated locally for Zendesk SDK authentication          │
+│                                                                         │
+│  JWT Claims:                                                            │
+│  {                                                                      │
+│    "scope": "user",                                                     │
+│    "external_id": "{npi}",                                              │
+│    "name": "{fullName}",                                                │
+│    "email": "{userEmail}",                                              │
+│    "iat": {issuedAt},                                                   │
+│    "exp": {expiresAt}  // 6 hours from generation                       │
+│  }                                                                      │
+│                                                                         │
+│  Purpose: Authenticate user with Zendesk Messaging SDK                  │
+│  Token Expiry: 6 hours                                                  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+    USER IS NOW READY TO SUBMIT REQUESTS
+```
+
+### User Identification
+
+The **NPI (National Provider Identifier)** is used as the `external_id` to link the app user with their Zendesk account. This allows:
+
+- Consistent user identification across platforms
+- Ticket attribution to the correct prescriber
+- Conversation history preservation
+
+### Handling Existing Users
+
+When creating a Sunshine user, if the API returns **409 Conflict**, the system automatically:
+
+1. Fetches the existing user by external ID
+2. Retrieves the existing user's Sunshine ID
+3. Continues with the normal flow
+
+```
+GET {BASE_URL}/sc/v2/apps/{appId}/users?externalId={npi}
 ```
 
 ---
@@ -353,117 +464,6 @@ When user clicks the **Submit** button, the following sequence executes:
 | 3 | Send Message | POST | Post user's request | Step 2 success (conversationId) |
 | 4 | Fetch Ticket | GET (polling) | Find auto-created ticket | Step 3 success |
 | 5 | Set Requester | PUT | Add prescriber info to ticket | Step 4 success (ticketId) |
-
----
-
-## Zendesk User Setup
-
-Before a user can submit requests, they must be registered with Zendesk. This happens automatically when the user navigates to the Concierge feature.
-
-### User Creation Flow
-
-```
-┌───────────────────────────────────────────────────────────────────────────┐
-│                        ZENDESK USER SETUP FLOW                            │
-└───────────────────────────────────────────────────────────────────────────┘
-
-    USER OPENS CONCIERGE
-           │
-           ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                    STEP 1: CREATE ZENDESK SUPPORT USER                    │
-├───────────────────────────────────────────────────────────────────────────┤
-│                                                                           │
-│  Endpoint: POST {BASE_URL}/api/v2/users.json                              │
-│  Auth: Basic Auth (email/token:apiToken)                                  │
-│                                                                           │
-│  Request Body:                                                            │
-│  {                                                                        │
-│    "user": {                                                              │
-│      "name": "{firstName}",                                               │
-│      "email": "{userEmail}",                                              │
-│      "external_id": "{npi}"                                               │
-│    }                                                                      │
-│  }                                                                        │
-│                                                                           │
-│  Purpose: Create user account in Zendesk Support for ticket management   │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                  STEP 2: CREATE SUNSHINE CONVERSATIONS USER               │
-├───────────────────────────────────────────────────────────────────────────┤
-│                                                                           │
-│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/users                       │
-│  Auth: Basic Auth (appKey:appSecret)                                      │
-│                                                                           │
-│  Request Body:                                                            │
-│  {                                                                        │
-│    "externalId": "{npi}",                                                 │
-│    "identities": [                                                        │
-│      { "type": "email", "value": "{userEmail}" }                          │
-│    ],                                                                     │
-│    "profile": {                                                           │
-│      "givenName": "{firstName}",                                          │
-│      "surname": "{lastName}",                                             │
-│      "email": "{userEmail}"                                               │
-│    }                                                                      │
-│  }                                                                        │
-│                                                                           │
-│  Purpose: Create user in Sunshine Conversations for real-time messaging  │
-│                                                                           │
-│  Response Handling:                                                       │
-│  • 201 Created → User created successfully, returns userId                │
-│  • 409 Conflict → User already exists, fetch existing user                │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌───────────────────────────────────────────────────────────────────────────┐
-│                       STEP 3: GENERATE JWT TOKEN                          │
-├───────────────────────────────────────────────────────────────────────────┤
-│                                                                           │
-│  JWT Token is generated locally for Zendesk SDK authentication            │
-│                                                                           │
-│  JWT Claims:                                                              │
-│  {                                                                        │
-│    "scope": "user",                                                       │
-│    "external_id": "{npi}",                                                │
-│    "name": "{fullName}",                                                  │
-│    "email": "{userEmail}",                                                │
-│    "iat": {issuedAt},                                                     │
-│    "exp": {expiresAt}  // 6 hours from generation                         │
-│  }                                                                        │
-│                                                                           │
-│  Purpose: Authenticate user with Zendesk Messaging SDK                    │
-│  Token Expiry: 6 hours                                                    │
-│                                                                           │
-└───────────────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-    USER IS NOW READY TO SUBMIT REQUESTS
-```
-
-### User Identification
-
-The **NPI (National Provider Identifier)** is used as the `external_id` to link the app user with their Zendesk account. This allows:
-
-- Consistent user identification across platforms
-- Ticket attribution to the correct prescriber
-- Conversation history preservation
-
-### Handling Existing Users
-
-When creating a Sunshine user, if the API returns **409 Conflict**, the system automatically:
-
-1. Fetches the existing user by external ID
-2. Retrieves the existing user's Sunshine ID
-3. Continues with the normal flow
-
-```
-GET {BASE_URL}/sc/v2/apps/{appId}/users?externalId={npi}
-```
 
 ---
 
