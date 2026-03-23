@@ -12,10 +12,11 @@
 2. [Architecture](#architecture)
 3. [Screen Flow Diagram](#screen-flow-diagram)
 4. [Submit Button - Complete API Flow](#submit-button---complete-api-flow)
-5. [Screens & Components](#screens--components)
-6. [Ticket Status Filtering](#ticket-status-filtering)
-7. [API Endpoints](#api-endpoints)
-8. [Error Handling](#error-handling)
+5. [Zendesk User Setup](#zendesk-user-setup)
+6. [Screens & Components](#screens--components)
+7. [Ticket Status Filtering](#ticket-status-filtering)
+8. [API Endpoints](#api-endpoints)
+9. [Error Handling](#error-handling)
 
 ---
 
@@ -39,9 +40,9 @@ The **Concierge** feature enables prescribers to submit requests directly from t
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              MVVM ARCHITECTURE                               │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                            MVVM ARCHITECTURE                              │
+└───────────────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │      VIEW       │     │   VIEWMODEL     │     │     MODEL       │
@@ -52,65 +53,65 @@ The **Concierge** feature enables prescribers to submit requests directly from t
         │◀──────────────────────│◀──────────────────────│
         │                       │                       │
 ┌───────┴───────┐       ┌───────┴───────┐       ┌───────┴───────┐
-│ Concierge     │       │ Concierge     │       │  HTTP Client  │
-│ Screens       │       │ ViewModels    │       │  (Cronet)     │
+│   Concierge   │       │   Concierge   │       │  HTTP Client  │
+│   Screens     │       │   ViewModels  │       │   (Cronet)    │
 └───────────────┘       └───────────────┘       └───────────────┘
 ```
 
 ### Component Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CONCIERGE MODULE                                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                            UI LAYER                                   │  │
-│  │                                                                       │  │
-│  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐     │  │
-│  │   │ Concierge       │  │ Request List    │  │ Archived        │     │  │
-│  │   │ Screen          │  │ Screen          │  │ Screen          │     │  │
-│  │   │                 │  │                 │  │                 │     │  │
-│  │   │ • Request Types │  │ • New/Open only │  │ • Closed        │     │  │
-│  │   │ • Text Input    │  │ • Tap to open   │  │ • Solved        │     │  │
-│  │   │ • Submit Button │  │ • Refresh       │  │ • Pending/Hold  │     │  │
-│  │   └────────┬────────┘  └────────┬────────┘  └────────┬────────┘     │  │
-│  │            │                    │                    │               │  │
-│  │   ┌────────┴────────┐  ┌────────┴────────────────────┴────────┐     │  │
-│  │   │ Settings Screen │  │         Shared UI Components          │     │  │
-│  │   │ • Preferences   │  │  • RequestCard • RadioButton • Dialogs│     │  │
-│  │   └─────────────────┘  └──────────────────────────────────────┘     │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-│                                      │                                      │
-│                                      ▼                                      │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                         VIEWMODEL LAYER                               │  │
-│  │                                                                       │  │
-│  │   ┌─────────────────────────┐   ┌─────────────────────────┐         │  │
-│  │   │   ConciergeViewModel    │   │  RequestsListViewModel  │         │  │
-│  │   │                         │   │                         │         │  │
-│  │   │ • Form validation       │   │ • Fetch active requests │         │  │
-│  │   │ • API state machine     │   │ • Fetch archived reqs   │         │  │
-│  │   │ • Submission flow       │   │ • Search by user email  │         │  │
-│  │   └─────────────────────────┘   └─────────────────────────┘         │  │
-│  │                                                                       │  │
-│  │   ┌─────────────────────────────────────────────────────────────┐   │  │
-│  │   │                     SharedViewModel                          │   │  │
-│  │   │  • User Profile • JWT Token • Conversation ID • Test NPI    │   │  │
-│  │   └─────────────────────────────────────────────────────────────┘   │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-│                                      │                                      │
-│                                      ▼                                      │
-│  ┌──────────────────────────────────────────────────────────────────────┐  │
-│  │                          DATA LAYER                                   │  │
-│  │                                                                       │  │
-│  │   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐   │  │
-│  │   │   HTTP Client   │   │  Zendesk SDK    │   │ Local Storage   │   │  │
-│  │   │   (Cronet)      │   │  (Messaging)    │   │ (SharedPrefs)   │   │  │
-│  │   └─────────────────┘   └─────────────────┘   └─────────────────┘   │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           CONCIERGE MODULE                                │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                            UI LAYER                                 │  │
+│  │                                                                     │  │
+│  │   ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐    │  │
+│  │   │ Concierge       │  │ Request List    │  │ Archived        │    │  │
+│  │   │ Screen          │  │ Screen          │  │ Screen          │    │  │
+│  │   │                 │  │                 │  │                 │    │  │
+│  │   │ • Request Types │  │ • New/Open only │  │ • Closed        │    │  │
+│  │   │ • Text Input    │  │ • Tap to open   │  │ • Solved        │    │  │
+│  │   │ • Submit Button │  │ • Refresh       │  │ • Pending/Hold  │    │  │
+│  │   └────────┬────────┘  └────────┬────────┘  └────────┬────────┘    │  │
+│  │            │                    │                    │              │  │
+│  │   ┌────────┴────────┐  ┌────────┴────────────────────┴────────┐    │  │
+│  │   │ Settings Screen │  │       Shared UI Components           │    │  │
+│  │   │ • Preferences   │  │ • RequestCard • RadioButton • Dialogs│    │  │
+│  │   └─────────────────┘  └──────────────────────────────────────┘    │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                     │                                     │
+│                                     ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                         VIEWMODEL LAYER                             │  │
+│  │                                                                     │  │
+│  │   ┌─────────────────────────┐   ┌─────────────────────────┐        │  │
+│  │   │   ConciergeViewModel    │   │  RequestsListViewModel  │        │  │
+│  │   │                         │   │                         │        │  │
+│  │   │ • Form validation       │   │ • Fetch active requests │        │  │
+│  │   │ • API state machine     │   │ • Fetch archived reqs   │        │  │
+│  │   │ • Submission flow       │   │ • Search by user email  │        │  │
+│  │   └─────────────────────────┘   └─────────────────────────┘        │  │
+│  │                                                                     │  │
+│  │   ┌───────────────────────────────────────────────────────────┐    │  │
+│  │   │                     SharedViewModel                       │    │  │
+│  │   │  • User Profile • JWT Token • Conversation ID • Test NPI  │    │  │
+│  │   └───────────────────────────────────────────────────────────┘    │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                     │                                     │
+│                                     ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                          DATA LAYER                                 │  │
+│  │                                                                     │  │
+│  │   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐  │  │
+│  │   │   HTTP Client   │   │  Zendesk SDK    │   │ Local Storage   │  │  │
+│  │   │   (Cronet)      │   │  (Messaging)    │   │ (SharedPrefs)   │  │  │
+│  │   └─────────────────┘   └─────────────────┘   └─────────────────┘  │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -176,10 +177,9 @@ The **Concierge** feature enables prescribers to submit requests directly from t
 When user clicks the **Submit** button, the following sequence executes:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    SUBMIT BUTTON - COMPLETE API FLOW                         │
-└─────────────────────────────────────────────────────────────────────────────┘
-
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    SUBMIT BUTTON - COMPLETE API FLOW                      │
+└───────────────────────────────────────────────────────────────────────────┘
 
     USER CLICKS SUBMIT
            │
@@ -210,138 +210,138 @@ When user clicks the **Submit** button, the following sequence executes:
     └──────┬───────┘
            │
            ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                        API 1: ZENDESK SDK LOGIN                              │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Purpose: Authenticate user with Zendesk SDK using JWT                       │
-│                                                                              │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │  Zendesk.instance.loginUser(jwt = jwtToken)                            │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                              │
-│  On Success → Proceed to API 2                                               │
-│  On Failure → Show "Couldn't login" error dialog                            │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                        API 1: ZENDESK SDK LOGIN                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Purpose: Authenticate user with Zendesk SDK using JWT                    │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │  Zendesk.instance.loginUser(jwt = jwtToken)                         │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+│  On Success → Proceed to API 2                                            │
+│  On Failure → Show "Couldn't login" error dialog                          │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
            │
            │ Success
            ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                     API 2: CREATE CONVERSATION                               │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/conversations                  │
-│  Auth: Basic Auth (appKey:appSecret)                                         │
-│                                                                              │
-│  Purpose: Create a new Sunshine Conversation with metadata                   │
-│                                                                              │
-│  Request includes:                                                           │
-│  • type: "personal"                                                          │
-│  • displayName: subject (e.g., "Request Free Samples")                       │
-│  • metadata: tags, NPI, email, name, source                                  │
-│  • participants: user's external ID (NPI)                                    │
-│                                                                              │
-│  Response returns: conversation.id                                           │
-│                                                                              │
-│  On Success → Store conversationId, proceed to API 3                         │
-│  On Failure → Show error dialog                                              │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                     API 2: CREATE CONVERSATION                            │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/conversations               │
+│  Auth: Basic Auth (appKey:appSecret)                                      │
+│                                                                           │
+│  Purpose: Create a new Sunshine Conversation with metadata                │
+│                                                                           │
+│  Request includes:                                                        │
+│  • type: "personal"                                                       │
+│  • displayName: subject (e.g., "Request Free Samples")                    │
+│  • metadata: tags, NPI, email, name, source                               │
+│  • participants: user's external ID (NPI)                                 │
+│                                                                           │
+│  Response returns: conversation.id                                        │
+│                                                                           │
+│  On Success → Store conversationId, proceed to API 3                      │
+│  On Failure → Show error dialog                                           │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
            │
            │ Success (got conversationId)
            ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                       API 3: SEND MESSAGE                                    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/conversations/{convId}/messages│
-│  Auth: Basic Auth (appKey:appSecret)                                         │
-│                                                                              │
-│  Purpose: Post the user's request message to the conversation                │
-│                                                                              │
-│  Request includes:                                                           │
-│  • author: { type: "user", userExternalId: NPI }                             │
-│  • content: { type: "text", text: user's message }                           │
-│                                                                              │
-│  On Success → Proceed to API 4                                               │
-│  On Failure → Show "Message sending failed" error dialog                     │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                       API 3: SEND MESSAGE                                 │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/conversations/{id}/messages │
+│  Auth: Basic Auth (appKey:appSecret)                                      │
+│                                                                           │
+│  Purpose: Post the user's request message to the conversation             │
+│                                                                           │
+│  Request includes:                                                        │
+│  • author: { type: "user", userExternalId: NPI }                          │
+│  • content: { type: "text", text: user's message }                        │
+│                                                                           │
+│  On Success → Proceed to API 4                                            │
+│  On Failure → Show "Message sending failed" error dialog                  │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
            │
            │ Success (message sent)
            ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      API 4: FETCH TICKET (POLLING)                           │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Endpoint: GET {BASE_URL}/api/v2/search.json?query=type:ticket tags:{tag}    │
-│  Auth: Basic Auth (agentEmail/token:apiToken)                                │
-│                                                                              │
-│  Purpose: Find the ticket that Zendesk auto-created from our conversation    │
-│                                                                              │
-│  ┌────────────────────────────────────────────────────────────────────────┐ │
-│  │                         POLLING LOGIC                                  │ │
-│  │                                                                        │ │
-│  │   ┌─────────┐     No ticket      ┌─────────┐                          │ │
-│  │   │  POLL   │────────found──────▶│  WAIT   │                          │ │
-│  │   │   API   │                    │  500ms  │                          │ │
-│  │   └────┬────┘                    └────┬────┘                          │ │
-│  │        │                              │                                │ │
-│  │        │◀─────────────────────────────┘                                │ │
-│  │        │                                                               │ │
-│  │        │ Ticket found                                                  │ │
-│  │        ▼                                                               │ │
-│  │   ┌─────────┐                                                         │ │
-│  │   │ SUCCESS │                                                         │ │
-│  │   └─────────┘                                                         │ │
-│  │                                                                        │ │
-│  │   Timeout: 30 seconds (if ticket not found → show error)              │ │
-│  └────────────────────────────────────────────────────────────────────────┘ │
-│                                                                              │
-│  Response returns: results[0].id (ticketId)                                  │
-│                                                                              │
-│  On Success → Store ticketId, proceed to API 5                               │
-│  On Timeout → Show "Ticket creation timed out" error dialog                  │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                      API 4: FETCH TICKET (POLLING)                        │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Endpoint: GET {BASE_URL}/api/v2/search.json?query=type:ticket tags:{tag} │
+│  Auth: Basic Auth (agentEmail/token:apiToken)                             │
+│                                                                           │
+│  Purpose: Find the ticket that Zendesk auto-created from our conversation │
+│                                                                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                         POLLING LOGIC                               │  │
+│  │                                                                     │  │
+│  │   ┌─────────┐     No ticket      ┌─────────┐                       │  │
+│  │   │  POLL   │────────found──────▶│  WAIT   │                       │  │
+│  │   │   API   │                    │  500ms  │                       │  │
+│  │   └────┬────┘                    └────┬────┘                       │  │
+│  │        │                              │                            │  │
+│  │        │◀─────────────────────────────┘                            │  │
+│  │        │                                                           │  │
+│  │        │ Ticket found                                              │  │
+│  │        ▼                                                           │  │
+│  │   ┌─────────┐                                                      │  │
+│  │   │ SUCCESS │                                                      │  │
+│  │   └─────────┘                                                      │  │
+│  │                                                                     │  │
+│  │   Timeout: 30 seconds (if ticket not found → show error)           │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                           │
+│  Response returns: results[0].id (ticketId)                               │
+│                                                                           │
+│  On Success → Store ticketId, proceed to API 5                            │
+│  On Timeout → Show "Ticket creation timed out" error dialog               │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
            │
            │ Success (got ticketId)
            ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                      API 5: SET REQUESTER                                    │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Endpoint: PUT {BASE_URL}/api/v2/tickets/{ticketId}.json                     │
-│  Auth: Basic Auth (agentEmail/token:apiToken)                                │
-│                                                                              │
-│  Purpose: Update ticket with prescriber's contact information                │
-│                                                                              │
-│  Request includes:                                                           │
-│  • ticket.subject: request type                                              │
-│  • ticket.requester: { name, external_id (NPI), phone, email }               │
-│  • ticket.custom_fields: subject, NPI, conversationId                        │
-│                                                                              │
-│  On Success → Hide loader, open Zendesk Messaging UI                         │
-│  On Failure → Show "Failed to set requester" error dialog                    │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                      API 5: SET REQUESTER                                 │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Endpoint: PUT {BASE_URL}/api/v2/tickets/{ticketId}.json                  │
+│  Auth: Basic Auth (agentEmail/token:apiToken)                             │
+│                                                                           │
+│  Purpose: Update ticket with prescriber's contact information             │
+│                                                                           │
+│  Request includes:                                                        │
+│  • ticket.subject: request type                                           │
+│  • ticket.requester: { name, external_id (NPI), phone, email }            │
+│  • ticket.custom_fields: subject, NPI, conversationId                     │
+│                                                                           │
+│  On Success → Hide loader, open Zendesk Messaging UI                      │
+│  On Failure → Show "Failed to set requester" error dialog                 │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
            │
            │ Success
            ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                     OPEN ZENDESK MESSAGING                                   │
-├──────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  Action: Open Zendesk Messaging SDK with the conversationId                  │
-│                                                                              │
-│  User can now:                                                               │
-│  • See their submitted request                                               │
-│  • Continue the conversation                                                 │
-│  • Receive replies from support team                                         │
-│  • Get push notifications for new messages                                   │
-│                                                                              │
-└──────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                     OPEN ZENDESK MESSAGING                                │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Action: Open Zendesk Messaging SDK with the conversationId               │
+│                                                                           │
+│  User can now:                                                            │
+│  • See their submitted request                                            │
+│  • Continue the conversation                                              │
+│  • Receive replies from support team                                      │
+│  • Get push notifications for new messages                                │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### API Flow Summary Table
@@ -354,18 +354,115 @@ When user clicks the **Submit** button, the following sequence executes:
 | 4 | Fetch Ticket | GET (polling) | Find auto-created ticket | Step 3 success |
 | 5 | Set Requester | PUT | Add prescriber info to ticket | Step 4 success (ticketId) |
 
-### State Machine Transitions
+---
+
+## Zendesk User Setup
+
+Before a user can submit requests, they must be registered with Zendesk. This happens automatically when the user navigates to the Concierge feature.
+
+### User Creation Flow
 
 ```
-   ┌──────────────────────────────────────────────────────────────┐
-   │                                                              │
-   │    None ──▶ CreateConversation ──▶ SendMessage ──▶          │
-   │                                                              │
-   │         ──▶ FetchTicket ──▶ SetRequester ──▶ None           │
-   │                                                              │
-   │    (Each step sets the trigger for the next step)           │
-   │                                                              │
-   └──────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                        ZENDESK USER SETUP FLOW                            │
+└───────────────────────────────────────────────────────────────────────────┘
+
+    USER OPENS CONCIERGE
+           │
+           ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                    STEP 1: CREATE ZENDESK SUPPORT USER                    │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Endpoint: POST {BASE_URL}/api/v2/users.json                              │
+│  Auth: Basic Auth (email/token:apiToken)                                  │
+│                                                                           │
+│  Request Body:                                                            │
+│  {                                                                        │
+│    "user": {                                                              │
+│      "name": "{firstName}",                                               │
+│      "email": "{userEmail}",                                              │
+│      "external_id": "{npi}"                                               │
+│    }                                                                      │
+│  }                                                                        │
+│                                                                           │
+│  Purpose: Create user account in Zendesk Support for ticket management   │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                  STEP 2: CREATE SUNSHINE CONVERSATIONS USER               │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  Endpoint: POST {BASE_URL}/sc/v2/apps/{appId}/users                       │
+│  Auth: Basic Auth (appKey:appSecret)                                      │
+│                                                                           │
+│  Request Body:                                                            │
+│  {                                                                        │
+│    "externalId": "{npi}",                                                 │
+│    "identities": [                                                        │
+│      { "type": "email", "value": "{userEmail}" }                          │
+│    ],                                                                     │
+│    "profile": {                                                           │
+│      "givenName": "{firstName}",                                          │
+│      "surname": "{lastName}",                                             │
+│      "email": "{userEmail}"                                               │
+│    }                                                                      │
+│  }                                                                        │
+│                                                                           │
+│  Purpose: Create user in Sunshine Conversations for real-time messaging  │
+│                                                                           │
+│  Response Handling:                                                       │
+│  • 201 Created → User created successfully, returns userId                │
+│  • 409 Conflict → User already exists, fetch existing user                │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌───────────────────────────────────────────────────────────────────────────┐
+│                       STEP 3: GENERATE JWT TOKEN                          │
+├───────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  JWT Token is generated locally for Zendesk SDK authentication            │
+│                                                                           │
+│  JWT Claims:                                                              │
+│  {                                                                        │
+│    "scope": "user",                                                       │
+│    "external_id": "{npi}",                                                │
+│    "name": "{fullName}",                                                  │
+│    "email": "{userEmail}",                                                │
+│    "iat": {issuedAt},                                                     │
+│    "exp": {expiresAt}  // 6 hours from generation                         │
+│  }                                                                        │
+│                                                                           │
+│  Purpose: Authenticate user with Zendesk Messaging SDK                    │
+│  Token Expiry: 6 hours                                                    │
+│                                                                           │
+└───────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+    USER IS NOW READY TO SUBMIT REQUESTS
+```
+
+### User Identification
+
+The **NPI (National Provider Identifier)** is used as the `external_id` to link the app user with their Zendesk account. This allows:
+
+- Consistent user identification across platforms
+- Ticket attribution to the correct prescriber
+- Conversation history preservation
+
+### Handling Existing Users
+
+When creating a Sunshine user, if the API returns **409 Conflict**, the system automatically:
+
+1. Fetches the existing user by external ID
+2. Retrieves the existing user's Sunshine ID
+3. Continues with the normal flow
+
+```
+GET {BASE_URL}/sc/v2/apps/{appId}/users?externalId={npi}
 ```
 
 ---
@@ -668,9 +765,9 @@ Request Body:
 ### Error Flow
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      ERROR HANDLING FLOW                         │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                          ERROR HANDLING FLOW                              │
+└───────────────────────────────────────────────────────────────────────────┘
 
    Any API Call
         │
@@ -700,4 +797,3 @@ Request Body:
 
 ---
 
-*Document generated for Prescriber Android App - Concierge Module*
