@@ -13,8 +13,9 @@
 3. [Screen Flow Diagram](#screen-flow-diagram)
 4. [Submit Button - Complete API Flow](#submit-button---complete-api-flow)
 5. [Screens & Components](#screens--components)
-6. [API Endpoints](#api-endpoints)
-7. [Error Handling](#error-handling)
+6. [Ticket Status Filtering](#ticket-status-filtering)
+7. [API Endpoints](#api-endpoints)
+8. [Error Handling](#error-handling)
 
 ---
 
@@ -70,9 +71,9 @@ The **Concierge** feature enables prescribers to submit requests directly from t
 │  │   │ Concierge       │  │ Request List    │  │ Archived        │     │  │
 │  │   │ Screen          │  │ Screen          │  │ Screen          │     │  │
 │  │   │                 │  │                 │  │                 │     │  │
-│  │   │ • Request Types │  │ • Active List   │  │ • Solved List   │     │  │
-│  │   │ • Text Input    │  │ • Tap to open   │  │ • Closed List   │     │  │
-│  │   │ • Submit Button │  │ • Refresh       │  │ • View History  │     │  │
+│  │   │ • Request Types │  │ • New/Open only │  │ • Closed        │     │  │
+│  │   │ • Text Input    │  │ • Tap to open   │  │ • Solved        │     │  │
+│  │   │ • Submit Button │  │ • Refresh       │  │ • Pending/Hold  │     │  │
 │  │   └────────┬────────┘  └────────┬────────┘  └────────┬────────┘     │  │
 │  │            │                    │                    │               │  │
 │  │   ┌────────┴────────┐  ┌────────┴────────────────────┴────────┐     │  │
@@ -161,8 +162,10 @@ The **Concierge** feature enables prescribers to submit requests directly from t
                                             │ Archived        │
                                             │ Requests        │
                                             │                 │
-                                            │ View completed  │
+                                            │ View non-active │
                                             │ conversations   │
+                                            │ (closed, solved,│
+                                            │ pending, hold)  │
                                             └─────────────────┘
 ```
 
@@ -380,21 +383,32 @@ When user clicks the **Submit** button, the following sequence executes:
 
 ### 2. Request List Screen
 
-**Purpose:** Display active (open) requests
+**Purpose:** Display active requests only
+
+**Active Request Status:**
+- `new` - Fresh tickets awaiting initial response
+- `open` - Tickets currently being worked on
 
 **Features:**
-- Auto-refresh on screen resume
+- Auto-refresh on screen resume (ON_RESUME lifecycle event)
 - Tap card to open Zendesk messaging
-- Dropdown menu for settings access
+- Dropdown menu for settings access (Contact Preferences, Archived Requests)
 - Loading state management
 
 ### 3. Archived Request Screen
 
-**Purpose:** Display completed/closed requests
+**Purpose:** Display all non-active requests
+
+**Archived Request Status (any status NOT "new" or "open"):**
+- `closed` - Request was resolved and closed
+- `solved` - Request was completed successfully
+- `pending` - Waiting for customer response
+- `hold` - Temporarily on hold
+- Any other future status
 
 **Features:**
-- Shows solved and closed tickets
-- View-only conversation history
+- Auto-loads on screen mount
+- Tap card to view conversation history in Zendesk messaging
 - Loading and error states
 
 ### 4. Settings Screen
@@ -413,6 +427,64 @@ When user clicks the **Submit** button, the following sequence executes:
 - Day-by-day time range selection
 - "Do Not Contact" toggle per day
 - Save to Zendesk user profile
+
+---
+
+## Ticket Status Filtering
+
+The app categorizes Zendesk tickets into two groups based on their status:
+
+### Active Requests (Request List Screen)
+
+Tickets are considered **active** if their status is:
+
+| Status | Description |
+|--------|-------------|
+| `new` | Fresh ticket awaiting initial response |
+| `open` | Ticket currently being worked on |
+
+### Archived Requests (Archived Screen)
+
+Tickets are considered **archived** if their status is **anything other than "new" or "open"**:
+
+| Status | Description |
+|--------|-------------|
+| `closed` | Request was resolved and closed |
+| `solved` | Request was completed successfully |
+| `pending` | Waiting for customer response |
+| `hold` | Temporarily on hold |
+| *any other* | Future statuses automatically go here |
+
+### Implementation
+
+The filtering logic is implemented in the ViewModel:
+
+```kotlin
+// Extension function to check if a request is active
+private fun ZendeskRequest.isActive(): Boolean {
+    return status.equals("new", ignoreCase = true) ||
+            status.equals("open", ignoreCase = true)
+}
+
+// Extension function to check if a request is archived
+private fun ZendeskRequest.isArchived(): Boolean {
+    return !isActive()
+}
+```
+
+The UI state provides computed properties for easy access:
+
+```kotlin
+data class RequestsListUiState(...) {
+    // Returns only active requests (new or open)
+    val activeRequests: List<ZendeskRequest>
+        get() = allRequests.filterNot { it.isArchived() }
+
+    // Returns only archived requests (everything else)
+    val archivedRequests: List<ZendeskRequest>
+        get() = allRequests.filter { it.isArchived() }
+}
+```
 
 ---
 
