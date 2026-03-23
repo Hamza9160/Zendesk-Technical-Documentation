@@ -837,6 +837,27 @@ Request Body:
 | 500+ | Server error | "Something went wrong" |
 | Timeout | Ticket not found in 30s | "Ticket creation timed out" |
 
+### JWT Token Error with Retry
+
+When submitting a Concierge request, if the JWT token is null, empty, or expired, a special retry dialog is shown with two options:
+
+| Button | Action |
+|--------|--------|
+| **OK** | Dismiss dialog, return to form |
+| **Retry** | Regenerate JWT token, re-login to Zendesk, and proceed with submission |
+
+**Retry Flow:**
+1. User clicks "Retry"
+2. System generates a new JWT token using user's NPI, name, and email
+3. System attempts Zendesk SDK login with the new token
+4. On success: Proceeds with the request submission
+5. On failure: Shows the retry dialog again
+
+This handles cases where:
+- JWT token was never generated
+- JWT token has expired (6-hour expiry)
+- JWT token was cleared from memory
+
 ### Error Flow
 
 ```
