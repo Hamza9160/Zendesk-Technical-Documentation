@@ -11,12 +11,13 @@
 1. [Overview](#overview)
 2. [Architecture](#architecture)
 3. [Zendesk User Setup (Prerequisite)](#zendesk-user-setup-prerequisite)
-4. [Screen Flow Diagram](#screen-flow-diagram)
-5. [Submit Button - Complete API Flow](#submit-button---complete-api-flow)
-6. [Screens & Components](#screens--components)
-7. [Ticket Status Filtering](#ticket-status-filtering)
-8. [API Endpoints](#api-endpoints)
-9. [Error Handling](#error-handling)
+4. [Zendesk Logout](#zendesk-logout)
+5. [Screen Flow Diagram](#screen-flow-diagram)
+6. [Submit Button - Complete API Flow](#submit-button---complete-api-flow)
+7. [Screens & Components](#screens--components)
+8. [Ticket Status Filtering](#ticket-status-filtering)
+9. [API Endpoints](#api-endpoints)
+10. [Error Handling](#error-handling)
 
 ---
 
@@ -54,7 +55,7 @@ The **Concierge** feature enables prescribers to submit requests directly from t
         │                       │                       │
 ┌───────┴───────┐       ┌───────┴───────┐       ┌───────┴───────┐
 │   Concierge   │       │   Concierge   │       │  HTTP Client  │
-│   Screens     │       │   ViewModels  │       │   (Cronet)    │
+│   Screens     │       │   ViewModels  │       │  (Network)    │
 └───────────────┘       └───────────────┘       └───────────────┘
 ```
 
@@ -107,7 +108,7 @@ The **Concierge** feature enables prescribers to submit requests directly from t
 │  │                                                                     │  │
 │  │   ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐  │  │
 │  │   │   HTTP Client   │   │  Zendesk SDK    │   │ Local Storage   │  │  │
-│  │   │   (Cronet)      │   │  (Messaging)    │   │ (SharedPrefs)   │  │  │
+│  │   │   (Network)     │   │  (Messaging)    │   │ (SharedPrefs)   │  │  │
 │  │   └─────────────────┘   └─────────────────┘   └─────────────────┘  │  │
 │  └─────────────────────────────────────────────────────────────────────┘  │
 │                                                                           │
@@ -118,7 +119,7 @@ The **Concierge** feature enables prescribers to submit requests directly from t
 
 ## Zendesk User Setup (Prerequisite)
 
-Before a user can submit requests, they must be registered with Zendesk. This happens automatically when the user first navigates to the Concierge feature.
+Before a user can submit requests, they must be registered with Zendesk. This happens automatically **right after user login** on the Home Page, not when opening the Concierge feature.
 
 ### User Creation Flow
 
@@ -127,7 +128,7 @@ Before a user can submit requests, they must be registered with Zendesk. This ha
 │                 ZENDESK USER SETUP FLOW (PREREQUISITE)                  │
 └─────────────────────────────────────────────────────────────────────────┘
 
-    USER OPENS CONCIERGE FOR FIRST TIME
+    USER LOGS IN → HOME PAGE LOADS
            │
            ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -202,6 +203,25 @@ Before a user can submit requests, they must be registered with Zendesk. This ha
 └─────────────────────────────────────────────────────────────────────────┘
            │
            ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    STEP 4: LOGIN TO ZENDESK SDK                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Uses the generated JWT token to authenticate with Zendesk Messaging    │
+│                                                                         │
+│  Zendesk.instance.loginUser(jwt = jwtToken)                             │
+│                                                                         │
+│  On Success:                                                            │
+│  • Mark user as logged in                                               │
+│  • Push FCM token for push notifications                                │
+│                                                                         │
+│  On Failure:                                                            │
+│  • Log error for debugging                                              │
+│  • User can still use other app features                                │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
     USER IS NOW READY TO SUBMIT REQUESTS
 ```
 
@@ -224,6 +244,61 @@ When creating a Sunshine user, if the API returns **409 Conflict**, the system a
 ```
 GET {BASE_URL}/sc/v2/apps/{appId}/users?externalId={npi}
 ```
+
+### Error Handling
+
+| Step | Error Condition | Handling |
+|------|-----------------|----------|
+| Create Zendesk User | API failure (-1) | Log error, continue with flow |
+| Create Sunshine User | 409 Conflict | Fetch existing user by external ID |
+| Create Sunshine User | Other errors | Log error, continue with flow |
+| Generate JWT | Missing user data | Skip JWT generation |
+| Zendesk SDK Login | SDK not initialized | Retry up to 10 times (500ms delay) |
+| Zendesk SDK Login | Login failure | Log error, user can still use app |
+
+---
+
+## Zendesk Logout
+
+When a user signs out of the app, they are also logged out of the Zendesk SDK to ensure proper session cleanup.
+
+### Logout Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          ZENDESK LOGOUT FLOW                            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    USER TAPS SIGN OUT
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      ZENDESK SDK LOGOUT                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  Zendesk.instance.logoutUser()                                          │
+│                                                                         │
+│  On Success:                                                            │
+│  • Reset login state flag                                               │
+│  • Clear Zendesk session                                                │
+│                                                                         │
+│  On Failure:                                                            │
+│  • Log error for debugging                                              │
+│  • Reset login state flag anyway                                        │
+│                                                                         │
+│  Note: If Zendesk SDK is not initialized, logout is skipped             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+    PROCEED WITH APP SIGN OUT
+```
+
+### When Logout is Called
+
+- User taps "Sign Out" in the Profile/Account screen
+- Deactivate account flow
+- Any session invalidation scenario
 
 ---
 
