@@ -398,7 +398,7 @@ val jwtToken = sharedViewModel.getOrCreateJwtToken()
                                             │ View non-active │
                                             │ conversations   │
                                             │ (closed, solved,│
-                                            │ pending, hold)  │
+                                            │ hold)           │
                                             └─────────────────┘
 ```
 
@@ -1177,4 +1177,3 @@ This handles cases where:
 6. **NPI as External ID:** User's NPI is used as the external identifier in Zendesk
 
 ---
-
